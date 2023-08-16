@@ -20,8 +20,9 @@ import {
   Chain,
   Network,
   RailgunERC20Amount,
+  isDefined,
 } from '@railgun-community/shared-models';
-import { getProviderForNetwork } from '../core/providers';
+import { getFallbackProviderForNetwork } from '../core/providers';
 import { sendMessage } from '../../../utils';
 import { parseRailgunTokenAddress } from '../util';
 import { reportAndSanitizeError } from '../../../utils/error';
@@ -114,7 +115,7 @@ const extractFirstNoteERC20AmountMap = async (
     );
   }
 
-  const provider = getProviderForNetwork(network.name);
+  const provider = getFallbackProviderForNetwork(network.name);
   const contract = new Contract(contractAddress, abi, provider);
 
   const parsedTransaction = contract.interface.parseTransaction({
@@ -150,7 +151,7 @@ const extractFirstNoteERC20AmountMap = async (
       const commitmentCiphertextStructOutput =
         boundParams.commitmentCiphertext[index];
       const commitmentHash: string = commitments[index];
-      if (!commitmentCiphertextStructOutput) {
+      if (!isDefined(commitmentCiphertextStructOutput)) {
         sendMessage('no ciphertext found for commitment at index 0');
         return;
       }
@@ -173,10 +174,10 @@ const extractFirstNoteERC20AmountMap = async (
 
       const { tokenAddress, amount } = erc20PaymentAmount;
 
-      if (!erc20PaymentAmounts[tokenAddress]) {
+      if (!isDefined(erc20PaymentAmounts[tokenAddress])) {
         erc20PaymentAmounts[tokenAddress] = 0n;
       }
-      erc20PaymentAmounts[tokenAddress] += amount;
+      (erc20PaymentAmounts[tokenAddress] as bigint) += amount;
     }),
   );
 

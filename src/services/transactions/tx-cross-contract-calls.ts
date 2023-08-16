@@ -10,6 +10,8 @@ import {
   RailgunNFTAmountRecipient,
   RailgunNFTAmount,
   TransactionGasDetails,
+  isDefined,
+  RailgunERC20Recipient,
 } from '@railgun-community/shared-models';
 import { getRelayAdaptContractForNetwork } from '../railgun/core/providers';
 import {
@@ -34,8 +36,8 @@ import {
   formatToByteLength,
   ByteLength,
   MINIMUM_RELAY_ADAPT_CROSS_CONTRACT_CALLS_GAS_LIMIT,
+  RelayAdaptShieldNFTRecipient,
 } from '@railgun-community/engine';
-import { fullWalletForID } from '../railgun/core/engine';
 import { assertNotBlockedAddress } from '../../utils/blocked-address';
 import { gasEstimateResponseDummyProofIterativeRelayerFee } from './tx-gas-relayer-fee-estimator';
 import { reportAndSanitizeError } from '../../utils/error';
@@ -112,10 +114,15 @@ export const createNFTTokenDataFromRailgunNFTAmount = (
   };
 };
 
-const createRelayAdaptShieldNFTsTokenData = (
-  relayAdaptShieldNFTs: RailgunNFTAmount[],
-): NFTTokenData[] => {
-  return relayAdaptShieldNFTs.map(createNFTTokenDataFromRailgunNFTAmount);
+const createRelayAdaptShieldNFTRecipients = (
+  relayAdaptShieldNFTRecipients: RailgunNFTAmountRecipient[],
+): RelayAdaptShieldNFTRecipient[] => {
+  return relayAdaptShieldNFTRecipients.map(
+    (nftRecipient: RailgunNFTAmountRecipient) => ({
+      nftTokenData: createNFTTokenDataFromRailgunNFTAmount(nftRecipient),
+      recipientAddress: nftRecipient.recipientAddress,
+    }),
+  );
 };
 
 export const populateProvedCrossContractCalls = async (
@@ -123,8 +130,8 @@ export const populateProvedCrossContractCalls = async (
   railgunWalletID: string,
   relayAdaptUnshieldERC20Amounts: RailgunERC20Amount[],
   relayAdaptUnshieldNFTAmounts: RailgunNFTAmount[],
-  relayAdaptShieldERC20Addresses: string[],
-  relayAdaptShieldNFTs: RailgunNFTAmount[],
+  relayAdaptShieldERC20Recipients: RailgunERC20Recipient[],
+  relayAdaptShieldNFTRecipients: RailgunNFTAmountRecipient[],
   crossContractCalls: ContractTransaction[],
   relayerFeeERC20AmountRecipient: Optional<RailgunERC20AmountRecipient>,
   sendWithPublicWallet: boolean,
@@ -142,8 +149,8 @@ export const populateProvedCrossContractCalls = async (
       [], // nftAmountRecipients
       relayAdaptUnshieldERC20Amounts,
       relayAdaptUnshieldNFTAmounts,
-      relayAdaptShieldERC20Addresses,
-      relayAdaptShieldNFTs,
+      relayAdaptShieldERC20Recipients,
+      relayAdaptShieldNFTRecipients,
       crossContractCalls,
       relayerFeeERC20AmountRecipient,
       sendWithPublicWallet,
@@ -167,16 +174,15 @@ export const gasEstimateForUnprovenCrossContractCalls = async (
   encryptionKey: string,
   relayAdaptUnshieldERC20Amounts: RailgunERC20Amount[],
   relayAdaptUnshieldNFTAmounts: RailgunNFTAmount[],
-  relayAdaptShieldERC20Addresses: string[],
-  relayAdaptShieldNFTs: RailgunNFTAmount[],
+  relayAdaptShieldERC20Recipients: RailgunERC20Recipient[],
+  relayAdaptShieldNFTRecipients: RailgunNFTAmountRecipient[],
   crossContractCalls: ContractTransaction[],
   originalGasDetails: TransactionGasDetails,
   feeTokenDetails: Optional<FeeTokenDetails>,
   sendWithPublicWallet: boolean,
+  minGasLimit: Optional<bigint>,
 ): Promise<RailgunTransactionGasEstimateResponse> => {
   try {
-    const wallet = fullWalletForID(railgunWalletID);
-
     setCachedProvedTransaction(undefined);
 
     const overallBatchMinGasPrice = 0n;
@@ -197,17 +203,16 @@ export const gasEstimateForUnprovenCrossContractCalls = async (
         relayAdaptUnshieldNFTAmounts,
       );
 
-    const relayAdaptShieldNFTsTokenData: NFTTokenData[] =
-      createRelayAdaptShieldNFTsTokenData(relayAdaptShieldNFTs);
-
     const shieldRandom = randomHex(16);
     const relayShieldRequests =
       await RelayAdaptHelper.generateRelayShieldRequests(
-        wallet,
         shieldRandom,
-        relayAdaptShieldERC20Addresses,
-        relayAdaptShieldNFTsTokenData,
+        relayAdaptShieldERC20Recipients,
+        createRelayAdaptShieldNFTRecipients(relayAdaptShieldNFTRecipients),
       );
+
+    const minimumGasLimit =
+      minGasLimit ?? MINIMUM_RELAY_ADAPT_CROSS_CONTRACT_CALLS_GAS_LIMIT;
 
     const response = await gasEstimateResponseDummyProofIterativeRelayerFee(
       (relayerFeeERC20Amount: Optional<RailgunERC20Amount>) =>
@@ -235,6 +240,7 @@ export const gasEstimateForUnprovenCrossContractCalls = async (
           relayAdaptParamsRandom,
           true, // isGasEstimate
           !sendWithPublicWallet, // isRelayerTransaction
+          minimumGasLimit,
         );
         // Remove gasLimit, we'll set to the minimum below.
         // TODO: Remove after callbacks upgrade.
@@ -253,9 +259,8 @@ export const gasEstimateForUnprovenCrossContractCalls = async (
     // TODO: Remove this after callbacks upgrade.
     // If gas estimate is under the cross-contract-minimum, replace it with the minimum.
     if (response.gasEstimate) {
-      const minimum = MINIMUM_RELAY_ADAPT_CROSS_CONTRACT_CALLS_GAS_LIMIT;
-      if (response.gasEstimate < minimum) {
-        response.gasEstimate = minimum;
+      if (response.gasEstimate < minimumGasLimit) {
+        response.gasEstimate = minimumGasLimit;
       }
     }
 
@@ -274,17 +279,16 @@ export const generateCrossContractCallsProof = async (
   encryptionKey: string,
   relayAdaptUnshieldERC20Amounts: RailgunERC20Amount[],
   relayAdaptUnshieldNFTAmounts: RailgunNFTAmount[],
-  relayAdaptShieldERC20Addresses: string[],
-  relayAdaptShieldNFTs: RailgunNFTAmount[],
+  relayAdaptShieldERC20Recipients: RailgunERC20Recipient[],
+  relayAdaptShieldNFTRecipients: RailgunNFTAmountRecipient[],
   crossContractCalls: ContractTransaction[],
   relayerFeeERC20AmountRecipient: Optional<RailgunERC20AmountRecipient>,
   sendWithPublicWallet: boolean,
   overallBatchMinGasPrice: Optional<bigint>,
+  minGasLimit: Optional<bigint>,
   progressCallback: ProverProgressCallback,
 ): Promise<void> => {
   try {
-    const wallet = fullWalletForID(railgunWalletID);
-
     setCachedProvedTransaction(undefined);
 
     const validCrossContractCalls =
@@ -321,16 +325,15 @@ export const generateCrossContractCallsProof = async (
     // Generate relay adapt params from dummy transactions.
     const shieldRandom = randomHex(16);
 
-    const relayAdaptShieldNFTsTokenData: NFTTokenData[] =
-      createRelayAdaptShieldNFTsTokenData(relayAdaptShieldNFTs);
-
     const relayShieldRequests =
       await RelayAdaptHelper.generateRelayShieldRequests(
-        wallet,
         shieldRandom,
-        relayAdaptShieldERC20Addresses,
-        relayAdaptShieldNFTsTokenData,
+        relayAdaptShieldERC20Recipients,
+        createRelayAdaptShieldNFTRecipients(relayAdaptShieldNFTRecipients),
       );
+
+    const minimumGasLimit =
+      minGasLimit ?? MINIMUM_RELAY_ADAPT_CROSS_CONTRACT_CALLS_GAS_LIMIT;
 
     const isRelayerTransaction = !sendWithPublicWallet;
     const relayAdaptParamsRandom = randomHex(31);
@@ -341,6 +344,7 @@ export const generateCrossContractCallsProof = async (
         relayShieldRequests,
         relayAdaptParamsRandom,
         isRelayerTransaction,
+        minimumGasLimit,
       );
     const relayAdaptID: AdaptID = {
       contract: relayAdaptContract.address,
@@ -374,6 +378,7 @@ export const generateCrossContractCallsProof = async (
       relayAdaptParamsRandom,
       false, // isGasEstimate
       isRelayerTransaction,
+      minimumGasLimit,
     );
     delete transaction.from;
 
@@ -386,8 +391,8 @@ export const generateCrossContractCallsProof = async (
       nftAmountRecipients: [],
       relayAdaptUnshieldERC20Amounts,
       relayAdaptUnshieldNFTAmounts,
-      relayAdaptShieldERC20Addresses,
-      relayAdaptShieldNFTs,
+      relayAdaptShieldERC20Recipients,
+      relayAdaptShieldNFTRecipients,
       crossContractCalls: validCrossContractCalls,
       relayerFeeERC20AmountRecipient,
       sendWithPublicWallet,
@@ -406,7 +411,7 @@ export const getRelayAdaptTransactionError = (
   try {
     const relayAdaptError =
       RelayAdaptContract.getRelayAdaptCallError(receiptLogs);
-    if (relayAdaptError) {
+    if (isDefined(relayAdaptError)) {
       sendErrorMessage(relayAdaptError);
       return relayAdaptError;
     }

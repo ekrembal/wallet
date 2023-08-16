@@ -1,7 +1,13 @@
-import { ArtifactName } from '@railgun-community/shared-models';
 import { createHash } from 'crypto';
+import { ArtifactName, isDefined } from '@railgun-community/shared-models';
+import { sha256 } from 'ethereum-cryptography/sha256.js';
 import { sendErrorMessage } from '../../utils/logger';
 import ARTIFACT_V2_HASHES from './json/artifact-v2-hashes.json';
+import {
+  hexStringToBytes,
+  hexlify,
+  isReactNative,
+} from '@railgun-community/engine';
 
 type ArtifactHashesJson = Record<
   string,
@@ -14,7 +20,7 @@ const getExpectedArtifactHash = (
 ): string => {
   const hashes = ARTIFACT_V2_HASHES as ArtifactHashesJson;
   const variantHashes = hashes[artifactVariantString];
-  if (!variantHashes) {
+  if (!isDefined(variantHashes)) {
     throw new Error(
       `No hashes for variant ${artifactName}: ${artifactVariantString}`,
     );
@@ -31,15 +37,28 @@ const getExpectedArtifactHash = (
   return hash;
 };
 
+const getDataBytes = (data: Uint8Array | Buffer | string): Uint8Array => {
+  if (data instanceof Uint8Array) {
+    return data;
+  }
+  if (Buffer.isBuffer(data)) {
+    return data.buffer as Uint8Array;
+  }
+  return hexStringToBytes(data);
+};
+
 export const validateArtifactDownload = async (
-  data: Buffer | string,
+  data: Uint8Array | Buffer | string,
   artifactName: ArtifactName,
   artifactVariantString: string,
 ): Promise<boolean> => {
   if (artifactName === ArtifactName.VKEY) {
     return true;
   }
-  const hash = createHash('sha256').update(data).digest('hex');
+  const dataBytes = getDataBytes(data);
+  const hash = isReactNative
+    ? hexlify(sha256(dataBytes))
+    : createHash('sha256').update(dataBytes).digest('hex');
   const expectedHash = getExpectedArtifactHash(
     artifactName,
     artifactVariantString,

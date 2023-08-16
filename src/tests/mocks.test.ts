@@ -7,6 +7,7 @@ import {
   NFTTokenType,
   RailgunNFTAmount,
   TransactionGasDetails,
+  RailgunERC20Recipient,
 } from '@railgun-community/shared-models';
 import { BalancesUpdatedCallback } from '../services/railgun/wallets/balance-update';
 import { CommitmentCiphertext } from '@railgun-community/engine';
@@ -54,6 +55,17 @@ export const MOCK_TOKEN_AMOUNTS: RailgunERC20Amount[] = [
   {
     tokenAddress: MOCK_TOKEN_ADDRESS_2,
     amount: BigInt(0x200),
+  },
+];
+
+export const MOCK_ERC20_RECIPIENTS: RailgunERC20Recipient[] = [
+  {
+    tokenAddress: MOCK_TOKEN_ADDRESS,
+    recipientAddress: MOCK_RAILGUN_WALLET_ADDRESS,
+  },
+  {
+    tokenAddress: MOCK_TOKEN_ADDRESS_2,
+    recipientAddress: MOCK_RAILGUN_WALLET_ADDRESS,
   },
 ];
 
@@ -166,19 +178,24 @@ export const MOCK_FALLBACK_PROVIDER_JSON_CONFIG: FallbackProviderJsonConfig = {
   chainId: 137,
   providers: [
     {
+      provider: 'https://polygon.llamarpc.com',
+      priority: 1,
+      weight: 2,
+      maxLogsPerBatch: 10,
+      stallTimeout: 2500,
+    },
+    {
+      provider: 'https://polygon-bor.publicnode.com',
+      priority: 1,
+      weight: 2,
+      maxLogsPerBatch: 10,
+      stallTimeout: 2500,
+    },
+    {
       provider: 'https://rpc.ankr.com/polygon',
       priority: 2,
       weight: 2,
-    },
-    {
-      provider: 'https://polygon-rpc.com',
-      priority: 2,
-      weight: 2,
-    },
-    {
-      provider: 'https://rpc-mainnet.maticvigil.com',
-      priority: 3,
-      weight: 2,
+      maxLogsPerBatch: 10,
     },
   ],
 };
@@ -188,19 +205,17 @@ export const MOCK_FALLBACK_PROVIDER_JSON_CONFIG_MUMBAI: FallbackProviderJsonConf
     chainId: 80001,
     providers: [
       {
-        provider: 'https://rpc-mumbai.maticvigil.com',
+        provider: 'https://polygon-mumbai-bor.publicnode.com',
         priority: 1,
         weight: 2,
+        maxLogsPerBatch: 10,
+        stallTimeout: 2500,
       },
       {
-        provider: 'https://matic-mumbai.chainstacklabs.com',
-        priority: 3,
+        provider: 'https://endpoints.omniatech.io/v1/matic/mumbai/public',
+        priority: 1,
         weight: 2,
-      },
-      {
-        provider: 'https://rpc.ankr.com/polygon_mumbai',
-        priority: 3,
-        weight: 2,
+        maxLogsPerBatch: 10,
       },
     ],
   };
@@ -210,20 +225,17 @@ export const MOCK_FALLBACK_PROVIDER_JSON_CONFIG_GOERLI: FallbackProviderJsonConf
     chainId: 5,
     providers: [
       {
-        provider: 'https://goerli.blockpi.network/v1/rpc/public',
-        priority: 2,
+        provider: 'https://ethereum-goerli.publicnode.com',
+        priority: 1,
         weight: 2,
-      },
-      {
-        provider:
-          'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-        priority: 3,
-        weight: 2,
+        maxLogsPerBatch: 10,
+        stallTimeout: 2500,
       },
       {
         provider: 'https://rpc.ankr.com/eth_goerli',
-        priority: 3,
+        priority: 1,
         weight: 2,
+        maxLogsPerBatch: 10,
       },
     ],
   };

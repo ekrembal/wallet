@@ -7,6 +7,7 @@ import {
   TransactionBatch,
   RelayAdaptContract,
   getTokenDataERC20,
+  MINIMUM_RELAY_ADAPT_CROSS_CONTRACT_CALLS_GAS_LIMIT,
 } from '@railgun-community/engine';
 import {
   RailgunERC20Amount,
@@ -15,6 +16,7 @@ import {
   EVMGasType,
   RailgunERC20AmountRecipient,
   TransactionGasDetails,
+  isDefined,
 } from '@railgun-community/shared-models';
 import {
   closeTestEngine,
@@ -25,11 +27,13 @@ import {
   MOCK_BOUND_PARAMS,
   MOCK_COMMITMENTS,
   MOCK_DB_ENCRYPTION_KEY,
+  MOCK_ERC20_RECIPIENTS,
   MOCK_ETH_WALLET_ADDRESS,
   MOCK_FEE_TOKEN_DETAILS,
   MOCK_FORMATTED_RELAYER_FEE_COMMITMENT_CIPHERTEXT,
   MOCK_MNEMONIC,
   MOCK_NFT_AMOUNTS,
+  MOCK_NFT_AMOUNT_RECIPIENTS,
   MOCK_NULLIFIERS,
   MOCK_TOKEN_ADDRESS,
   MOCK_TOKEN_ADDRESS_2,
@@ -106,6 +110,8 @@ const MOCK_TOKEN_AMOUNTS_DIFFERENT: RailgunERC20Amount[] = [
 
 const overallBatchMinGasPrice = BigInt('0x1000');
 
+const minGasLimit = MINIMUM_RELAY_ADAPT_CROSS_CONTRACT_CALLS_GAS_LIMIT;
+
 const gasDetails: TransactionGasDetails = {
   evmGasType: EVMGasType.Type1,
   gasEstimate: 2000n,
@@ -140,7 +146,7 @@ describe('tx-cross-contract-calls', () => {
       MOCK_MNEMONIC,
       undefined, // creationBlockNumbers
     );
-    if (!railgunWalletInfo) {
+    if (!isDefined(railgunWalletInfo)) {
       throw new Error('Expected railgunWalletInfo');
     }
     railgunWallet = fullWalletForID(railgunWalletInfo.id);
@@ -150,7 +156,7 @@ describe('tx-cross-contract-calls', () => {
       MOCK_MNEMONIC,
       undefined, // creationBlockNumbers
     );
-    if (!relayerWalletInfo) {
+    if (!isDefined(relayerWalletInfo)) {
       throw new Error('Expected relayerWalletInfo');
     }
     const relayerRailgunAddress = relayerWalletInfo.railgunAddress;
@@ -206,12 +212,13 @@ describe('tx-cross-contract-calls', () => {
       MOCK_DB_ENCRYPTION_KEY,
       MOCK_TOKEN_AMOUNTS,
       MOCK_NFT_AMOUNTS,
-      MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-      MOCK_NFT_AMOUNTS,
+      MOCK_ERC20_RECIPIENTS,
+      MOCK_NFT_AMOUNT_RECIPIENTS,
       mockCrossContractCalls,
       MOCK_TRANSACTION_GAS_DETAILS_SERIALIZED_TYPE_2,
       MOCK_FEE_TOKEN_DETAILS,
       false, // sendWithPublicWallet
+      minGasLimit,
     );
     expect(rsp.relayerFeeCommitment).to.not.be.undefined;
     expect(rsp.relayerFeeCommitment?.commitmentCiphertext).to.deep.equal(
@@ -286,7 +293,7 @@ describe('tx-cross-contract-calls', () => {
     ]);
     // Add 7500 for the dummy tx variance
     // expect(rsp.gasEstimate).to.equal(7500n + 280n);
-    expect(rsp.gasEstimate).to.equal(2_800_000n); // Cross Contract Minimum
+    expect(rsp.gasEstimate).to.equal(3_200_000n); // Cross Contract Minimum
   }).timeout(10000);
 
   it('Should get gas estimates for valid cross contract calls, public wallet', async () => {
@@ -298,12 +305,13 @@ describe('tx-cross-contract-calls', () => {
       MOCK_DB_ENCRYPTION_KEY,
       MOCK_TOKEN_AMOUNTS,
       MOCK_NFT_AMOUNTS,
-      MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-      MOCK_NFT_AMOUNTS,
+      MOCK_ERC20_RECIPIENTS,
+      MOCK_NFT_AMOUNT_RECIPIENTS,
       mockCrossContractCalls,
       MOCK_TRANSACTION_GAS_DETAILS_SERIALIZED_TYPE_2,
       MOCK_FEE_TOKEN_DETAILS,
       true, // sendWithPublicWallet
+      minGasLimit,
     );
 
     expect(rsp.relayerFeeCommitment).to.be.undefined;
@@ -344,7 +352,7 @@ describe('tx-cross-contract-calls', () => {
     ]);
     // Add 7500 for the dummy tx variance
     // expect(rsp.gasEstimate).to.equal(7500n + 280n);
-    expect(rsp.gasEstimate).to.equal(2_800_000n); // Cross Contract Minimum
+    expect(rsp.gasEstimate).to.equal(3_200_000n); // Cross Contract Minimum
   }).timeout(10000);
 
   it('Should error on gas estimates for invalid cross contract calls', async () => {
@@ -356,12 +364,13 @@ describe('tx-cross-contract-calls', () => {
         MOCK_DB_ENCRYPTION_KEY,
         MOCK_TOKEN_AMOUNTS,
         MOCK_NFT_AMOUNTS,
-        MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-        MOCK_NFT_AMOUNTS,
+        MOCK_ERC20_RECIPIENTS,
+        MOCK_NFT_AMOUNT_RECIPIENTS,
         [{ data: 'abc' } as ContractTransaction], // Invalid
         MOCK_TRANSACTION_GAS_DETAILS_SERIALIZED_TYPE_2,
         MOCK_FEE_TOKEN_DETAILS,
         false, // sendWithPublicWallet
+        minGasLimit,
       ),
     ).rejectedWith(`Cross-contract calls require to and data fields.`);
   });
@@ -375,12 +384,13 @@ describe('tx-cross-contract-calls', () => {
         MOCK_DB_ENCRYPTION_KEY,
         MOCK_TOKEN_AMOUNTS,
         MOCK_NFT_AMOUNTS,
-        MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-        MOCK_NFT_AMOUNTS,
+        MOCK_ERC20_RECIPIENTS,
+        MOCK_NFT_AMOUNT_RECIPIENTS,
         mockCrossContractCalls,
         MOCK_TRANSACTION_GAS_DETAILS_SERIALIZED_TYPE_2,
         MOCK_FEE_TOKEN_DETAILS,
         false, // sendWithPublicWallet
+        minGasLimit,
       ),
     ).rejectedWith(
       'RelayAdapt multicall failed at index UNKNOWN with error: test rejection - gas estimate',
@@ -399,12 +409,13 @@ describe('tx-cross-contract-calls', () => {
       MOCK_DB_ENCRYPTION_KEY,
       MOCK_TOKEN_AMOUNTS,
       MOCK_NFT_AMOUNTS,
-      MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-      MOCK_NFT_AMOUNTS,
+      MOCK_ERC20_RECIPIENTS,
+      MOCK_NFT_AMOUNT_RECIPIENTS,
       mockCrossContractCalls,
       relayerFeeERC20AmountRecipient,
       false, // sendWithPublicWallet
       overallBatchMinGasPrice,
+      minGasLimit,
       () => {}, // progressCallback
     );
     expect(addUnshieldDataSpy.called).to.be.true;
@@ -479,8 +490,8 @@ describe('tx-cross-contract-calls', () => {
       railgunWallet.id,
       MOCK_TOKEN_AMOUNTS,
       MOCK_NFT_AMOUNTS,
-      MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-      MOCK_NFT_AMOUNTS,
+      MOCK_ERC20_RECIPIENTS,
+      MOCK_NFT_AMOUNT_RECIPIENTS,
       mockCrossContractCalls,
       relayerFeeERC20AmountRecipient,
       false, // sendWithPublicWallet
@@ -512,8 +523,8 @@ describe('tx-cross-contract-calls', () => {
         railgunWallet.id,
         MOCK_TOKEN_AMOUNTS_DIFFERENT,
         MOCK_NFT_AMOUNTS,
-        MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-        MOCK_NFT_AMOUNTS,
+        MOCK_ERC20_RECIPIENTS,
+        MOCK_NFT_AMOUNT_RECIPIENTS,
         [{ data: '123' } as ContractTransaction], // Invalid
         relayerFeeERC20AmountRecipient,
         false, // sendWithPublicWallet
@@ -534,8 +545,8 @@ describe('tx-cross-contract-calls', () => {
         railgunWallet.id,
         MOCK_TOKEN_AMOUNTS,
         MOCK_NFT_AMOUNTS,
-        MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-        MOCK_NFT_AMOUNTS,
+        MOCK_ERC20_RECIPIENTS,
+        MOCK_NFT_AMOUNT_RECIPIENTS,
         mockCrossContractCalls,
         relayerFeeERC20AmountRecipient,
         false, // sendWithPublicWallet
@@ -553,12 +564,13 @@ describe('tx-cross-contract-calls', () => {
       MOCK_DB_ENCRYPTION_KEY,
       MOCK_TOKEN_AMOUNTS,
       MOCK_NFT_AMOUNTS,
-      MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-      MOCK_NFT_AMOUNTS,
+      MOCK_ERC20_RECIPIENTS,
+      MOCK_NFT_AMOUNT_RECIPIENTS,
       mockCrossContractCalls,
       relayerFeeERC20AmountRecipient,
       false, // sendWithPublicWallet
       overallBatchMinGasPrice,
+      minGasLimit,
       () => {}, // progressCallback
     );
     await expect(
@@ -567,8 +579,8 @@ describe('tx-cross-contract-calls', () => {
         railgunWallet.id,
         MOCK_TOKEN_AMOUNTS_DIFFERENT,
         MOCK_NFT_AMOUNTS,
-        MOCK_TOKEN_AMOUNTS.map(t => t.tokenAddress),
-        MOCK_NFT_AMOUNTS,
+        MOCK_ERC20_RECIPIENTS,
+        MOCK_NFT_AMOUNT_RECIPIENTS,
         mockCrossContractCalls,
         relayerFeeERC20AmountRecipient,
         false, // sendWithPublicWallet
@@ -592,5 +604,14 @@ describe('tx-cross-contract-calls', () => {
       `0x5c0dee5d00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000006408c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001564732d6d6174682d7375622d756e646572666c6f77000000000000000000000000000000000000000000000000000000000000000000000000000000`,
     );
     expect(transactionError).to.equal('ds-math-sub-underflow');
+  });
+
+  it('Should parse relay adapt revert data from railgun cookbook', () => {
+    const transactionError = parseRelayAdaptReturnValue(
+      `0x5c0dee5d00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002d52656c617941646170743a205265667573696e6720746f2063616c6c205261696c67756e20636f6e747261637400000000000000000000000000000000000000`,
+    );
+    expect(transactionError).to.equal(
+      'RelayAdapt: Refusing to call Railgun contract',
+    );
   });
 });

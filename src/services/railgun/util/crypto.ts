@@ -9,10 +9,13 @@ import {
   verifyED25519,
   EncryptedData,
   ViewingKeyPair,
+  isReactNative,
 } from '@railgun-community/engine';
 import { EncryptDataWithSharedKeyResponse } from '@railgun-community/shared-models';
 import { getRandomBytes } from './bytes';
-import crypto from 'crypto';
+import { promisify } from 'util';
+import { pbkdf2 as NodePbkdf2 } from 'crypto';
+import { pbkdf2 as JSpbkdf2 } from 'ethereum-cryptography/pbkdf2';
 
 export const verifyRelayerSignature = (
   signature: string | Uint8Array,
@@ -66,16 +69,24 @@ export const pbkdf2 = async (
   const keyLength = 32; // Bytes
   const digest = 'sha256';
 
-  const key: Buffer = await new Promise(resolve =>
-    crypto.pbkdf2(
+  let key: Uint8Array | Buffer;
+  if (isReactNative) {
+    key = await JSpbkdf2(
       secretFormatted,
       saltFormatted,
       iterations,
       keyLength,
       digest,
-      (_err: Error | null, derivedKey: Buffer) => resolve(derivedKey),
-    ),
-  );
+    );
+  } else {
+    key = await promisify(NodePbkdf2)(
+      secretFormatted,
+      saltFormatted,
+      iterations,
+      keyLength,
+      digest,
+    );
+  }
   return hexlify(key);
 };
 

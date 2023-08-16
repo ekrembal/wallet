@@ -2,6 +2,7 @@ import { ArtifactGetter, PublicInputs } from '@railgun-community/engine';
 import {
   Artifact,
   assertArtifactExists,
+  isDefined,
 } from '@railgun-community/shared-models';
 import { ArtifactDownloader } from '../../artifacts/artifact-downloader';
 import { ArtifactStore } from '../../artifacts/artifact-store';
@@ -39,8 +40,9 @@ export const getArtifacts = async (inputs: PublicInputs): Promise<Artifact> => {
   );
 
   // Use artifact in cache if available.
-  if (artifactCache[artifactVariantString]) {
-    return artifactCache[artifactVariantString];
+  const cachedArtifact = artifactCache[artifactVariantString];
+  if (isDefined(cachedArtifact)) {
+    return cachedArtifact;
   }
 
   const downloader = new ArtifactDownloader(artifactStore, useNativeArtifacts);
@@ -79,7 +81,7 @@ export const overrideArtifact = (
 
 export const clearArtifactCache = () => {
   for (const key in artifactCache) {
-    if (artifactCache[key]) {
+    if (isDefined(artifactCache[key])) {
       delete artifactCache[key];
     }
   }

@@ -26,19 +26,16 @@ const setupTests = () => {
   // setLoggers(console.log, console.error);
 };
 
-before(() => {
-  setupTests();
-});
+const rmDirSafe = async (dir: string) => {
+  if (await fileExists(dir)) {
+    await fs.promises.rm(dir, { recursive: true });
+  }
+};
 
-after(() => {
-  const { warn } = console;
-  fs.rm(ENGINE_TEST_DB, { recursive: true }, () => {
-    warn('Error removing test db.');
-  });
-  fs.rm('artifacts-v2.1', { recursive: true }, () => {
-    // Note: expect this error when we aren't running artifact download tests.
-    warn('Error removing test artifacts.');
-  });
+before(async () => {
+  await rmDirSafe(ENGINE_TEST_DB);
+  await rmDirSafe('artifacts-v2.1');
+  setupTests();
 });
 
 const fileExists = (path: string): Promise<boolean> => {
@@ -77,7 +74,11 @@ export const initTestEngine = (useNativeArtifacts = false) => {
 
 export const initTestEngineNetwork = async () => {
   // Don't wait for async. It will try to load historical events, which takes a while.
-  return loadProvider(MOCK_FALLBACK_PROVIDER_JSON_CONFIG, NetworkName.Polygon);
+  return loadProvider(
+    MOCK_FALLBACK_PROVIDER_JSON_CONFIG,
+    NetworkName.Polygon,
+    10000, // pollingInterval
+  );
 };
 
 export const closeTestEngine = async () => {

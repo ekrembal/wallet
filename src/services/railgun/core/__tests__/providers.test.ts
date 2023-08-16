@@ -3,6 +3,7 @@ import chaiAsPromised from 'chai-as-promised';
 import {
   NetworkName,
   FallbackProviderJsonConfig,
+  isDefined,
 } from '@railgun-community/shared-models';
 import {
   MOCK_DB_ENCRYPTION_KEY,
@@ -12,7 +13,7 @@ import { closeTestEngine, initTestEngine } from '../../../../tests/setup.test';
 import { walletForID } from '../engine';
 import {
   getMerkleTreeForNetwork,
-  getProviderForNetwork,
+  getFallbackProviderForNetwork,
   loadProvider,
   getRelayAdaptContractForNetwork,
   getRailgunSmartWalletContractForNetwork,
@@ -37,6 +38,7 @@ describe('providers', () => {
     const response = await loadProvider(
       MOCK_FALLBACK_PROVIDER_JSON_CONFIG_MUMBAI,
       NetworkName.PolygonMumbai,
+      10000, // pollingInterval
     );
     expect(response.feesSerialized).to.deep.equal({
       shield: '25',
@@ -44,10 +46,11 @@ describe('providers', () => {
       nft: '25',
     });
 
-    expect(getProviderForNetwork(NetworkName.PolygonMumbai)).to.not.be
+    expect(getFallbackProviderForNetwork(NetworkName.PolygonMumbai)).to.not.be
       .undefined;
-    expect(() => getProviderForNetwork(NetworkName.EthereumRopsten_DEPRECATED))
-      .to.throw;
+    expect(() =>
+      getFallbackProviderForNetwork(NetworkName.EthereumRopsten_DEPRECATED),
+    ).to.throw;
 
     expect(getMerkleTreeForNetwork(NetworkName.PolygonMumbai)).to.not.be
       .undefined;
@@ -75,7 +78,7 @@ describe('providers', () => {
       MOCK_MNEMONIC_PROVIDERS_ONLY,
       undefined, // creationBlockNumbers
     );
-    if (!railgunWalletInfo) {
+    if (!isDefined(railgunWalletInfo)) {
       throw new Error('Expected railgunWalletInfo.');
     }
     const wallet = walletForID(railgunWalletInfo.id);
@@ -89,6 +92,7 @@ describe('providers', () => {
       loadProvider(
         { chainId: 55 } as FallbackProviderJsonConfig,
         NetworkName.BNBChain,
+        10000, // pollingInterval
       ),
     ).rejectedWith('Invalid chain ID');
   });
@@ -98,6 +102,7 @@ describe('providers', () => {
       loadProvider(
         { chainId: 56 } as FallbackProviderJsonConfig,
         NetworkName.BNBChain,
+        10000, // pollingInterval
       ),
     ).rejectedWith(
       'Invalid fallback provider config for chain 56: Cannot read properties of undefined (reading reduce)',

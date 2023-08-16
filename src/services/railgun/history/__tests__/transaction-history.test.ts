@@ -25,6 +25,7 @@ import {
   RailgunUnshieldERC20Amount,
   TransactionHistoryItem,
   TransactionHistoryItemCategory,
+  isDefined,
 } from '@railgun-community/shared-models';
 
 chai.use(chaiAsPromised);
@@ -198,7 +199,7 @@ const MOCKED_UNKNOWN_SWAP_TRX: TransactionHistoryItem = {
 
 describe('transaction-history', () => {
   before(async function run() {
-    this.timeout(5000);
+    this.timeout(15000);
     initTestEngine();
     await initTestEngineNetwork();
     const railgunWalletInfo = await createRailgunWallet(
@@ -206,7 +207,7 @@ describe('transaction-history', () => {
       MOCK_MNEMONIC_2,
       { [NetworkName.Ethereum]: 0, [NetworkName.Polygon]: 2 }, // creationBlockNumbers
     );
-    if (!railgunWalletInfo) {
+    if (!isDefined(railgunWalletInfo)) {
       throw new Error(`Could not create wallet`);
     }
     wallet = fullWalletForID(railgunWalletInfo.id);
@@ -215,7 +216,6 @@ describe('transaction-history', () => {
     await closeTestEngine();
   });
 
-  // TODO: This should ensure merkletree is scanned first.
   it.skip('Should get wallet transaction history', async () => {
     const items = await getWalletTransactionHistory(
       POLYGON_CHAIN,
