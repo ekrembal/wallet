@@ -8,6 +8,10 @@ import {
   formatToByteLength,
   ByteLength,
   TransactionHistoryUnshieldTokenAmount,
+  TXO,
+  TransactionHistoryEntrySpent,
+  UnshieldStoredEvent,
+  SentCommitment,
 } from '@railgun-community/engine';
 import {
   TransactionHistoryItem,
@@ -245,3 +249,90 @@ export const getWalletTransactionHistory = async (
     throw new Error('Could not load RAILGUN wallet transaction history.');
   }
 };
+export const getWalletAllTXOs = async (
+  chain: Chain,
+  railgunWalletID: string
+): Promise<TXO[]> => {
+  try {
+    const wallet = walletForID(railgunWalletID);
+    const transactionHistory = await wallet.TXOs(
+      chain,
+    );
+    return transactionHistory;
+  } catch (err) {
+    reportAndSanitizeError(getWalletTransactionHistory.name, err);
+    throw new Error('Could not load RAILGUN wallet transaction history.');
+  }
+};
+
+
+export const getTransactionSpendHistory = async (
+  chain: Chain,
+  txos: TXO[],
+  railgunWalletID: string
+): Promise<TransactionHistoryEntrySpent[]> => {
+  try {
+    const wallet = walletForID(railgunWalletID);
+    const transactionSpendHistory = await wallet.getTransactionSpendHistory(
+      chain,
+      txos,
+      undefined
+    );
+    return transactionSpendHistory;
+  } catch (err) {
+    reportAndSanitizeError(getWalletTransactionHistory.name, err);
+    throw new Error('Could not load RAILGUN wallet transaction history.');
+  }
+};
+
+export const getSentCommitments = async (
+  chain: Chain,
+  railgunWalletID: string
+): Promise<SentCommitment[]> => {
+  try {
+    const wallet = walletForID(railgunWalletID);
+    const transactionSpendHistory = await wallet.getSentCommitments(
+      chain,
+      undefined
+    );
+    return transactionSpendHistory;
+  } catch (err) {
+    reportAndSanitizeError(getWalletTransactionHistory.name, err);
+    throw new Error('Could not load RAILGUN wallet transaction history.');
+  }
+};
+
+
+export const getTransactionHistory = async (
+  chain: Chain,
+  railgunWalletID: string,
+): Promise<TransactionHistoryEntry[]> => {
+  try {
+    const wallet = walletForID(railgunWalletID);
+    const transactionHistory = await wallet.getTransactionHistory(chain, undefined);
+    return transactionHistory;
+  } catch (err) {
+    reportAndSanitizeError(getWalletTransactionHistory.name, err);
+    throw new Error('Could not load RAILGUN wallet transaction history.');
+  }
+};
+
+
+
+export const getAllUnshieldEventsFromSpentNullifiers = async (
+  chain: Chain,
+  txos: TXO[],
+  railgunWalletID: string
+): Promise<UnshieldStoredEvent[]> => {
+  try {
+    const wallet = walletForID(railgunWalletID);
+    const allUnshieldEventsFromSpentNullifiers = await wallet.getAllUnshieldEventsFromSpentNullifiers(
+      chain,
+      txos
+    );
+    return allUnshieldEventsFromSpentNullifiers;
+  } catch (err) {
+    reportAndSanitizeError(getWalletTransactionHistory.name, err);
+    throw new Error('Could not load RAILGUN wallet transaction history.');
+  }
+}
